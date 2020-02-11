@@ -1,6 +1,7 @@
 # Local Twitter Trends
 
-<a href="http://dataplatform.me/" rel="nofollow">Live Demo</a>
+<a href="http://dataplatform.me/" rel="nofollow">Live Demo</a><br>
+<a href="https://bit.ly/37ZTaCu" rel="nofollow">Slides</a>
 
 ## 1. Introduction
 This project is to: <br>
