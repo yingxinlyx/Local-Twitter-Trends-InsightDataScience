@@ -1,7 +1,6 @@
 from kafka import KafkaProducer
 from kafka.errors import KafkaError
 import boto3
-import json
 
 # kafka producer
 bootstrap_servers = '10.0.0.4:9092'

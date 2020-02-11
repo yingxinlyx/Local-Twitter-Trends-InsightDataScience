@@ -10,9 +10,7 @@ import pandas as pd
 import psycopg2
 
 # location list for the US
-df_loc = pd.read_csv('/home/ubuntu/uscities.csv')[[
-    'city', 'state_id', 'state_name'
-]]
+df_loc = pd.read_csv('/home/ubuntu/uscities.csv')[['city', 'state_id', 'state_name']]
 d = {}
 for index, row in df_loc.iterrows():
     if row['state_name'] not in d:
@@ -29,10 +27,8 @@ def match_loc(tweet):
             location = loc2
         elif loc2 == 'USA' and loc1 in d:
             location = d[loc1]
-    return [
-        tweet['created_at'], tweet['user']['id'], location,
-        re.findall('#\w+', tweet['text']) + re.findall('@\w+', tweet['text'])
-    ]
+    return [tweet['created_at'], tweet['user']['id'], location,
+            re.findall('#\w+', tweet['text']) + re.findall('@\w+', tweet['text'])]
 
 
 def topicMapper(tweet):
