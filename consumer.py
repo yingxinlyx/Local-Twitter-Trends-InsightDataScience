@@ -7,14 +7,7 @@ from pyspark.streaming.kafka import KafkaUtils
 import json
 import re
 import pandas as pd
-import psycopg2
-
-# location list for the US
-df_loc = pd.read_csv('/home/ubuntu/uscities.csv')[['city', 'state_id', 'state_name']]
-d = {}
-for index, row in df_loc.iterrows():
-    if row['state_name'] not in d:
-        d[row['state_name']] = row['state_id']
+from psycopg2.pool import ThreadedConnectionPool
 
 
 def match_loc(tweet):
@@ -40,79 +33,103 @@ def topicMapper(tweet):
 
 def saveTopic(time, rdd):
     def savePartition(iter):
-        conn = psycopg2.connect(database='******',
-                                user='******',
-                                password='******',
-                                host='10.0.0.6',
-                                port='5432')
+        pool = ThreadedConnectionPool(1,
+                                      5,
+                                      database='postgres',
+                                      user='db_select',
+                                      password='student',
+                                      host='10.0.0.6',
+                                      port='5432')
+        conn = pool.getconn()
         cur = conn.cursor()
 
         for record in iter:
-            qry = "INSERT INTO twitter_trend (timestamp, state, tag, cnt) VALUES ('%s','%s','%s',%s);" % (time, record[0], record[1], record[2])
+            qry = "INSERT INTO twitter_trend (timestamp, state, tag, cnt) VALUES ('%s','%s','%s',%s);" % (
+                time, record[0][0], record[0][1], record[1])
             cur.execute(qry)
-        
+
         conn.commit()
         cur.close()
-        conn.close()
+        pool.putconn(conn)
 
     rdd.foreachPartition(savePartition)
 
 
 def saveCount(time, rdd):
     def saveEachPartition(iter):
-        conn = psycopg2.connect(database='******',
-                                user='******',
-                                password='******',
-                                host='10.0.0.6',
-                                port='5432')
+        pool = ThreadedConnectionPool(1,
+                                      5,
+                                      database='postgres',
+                                      user='db_select',
+                                      password='student',
+                                      host='10.0.0.6',
+                                      port='5432')
+        conn = pool.getconn()
         cur = conn.cursor()
 
         for record in iter:
-            qry = "INSERT INTO activity (timestamp, state, cnt) VALUES ('%s','%s',%s);" % (time, record[0], record[1])
+            qry = "INSERT INTO activity (timestamp, state, cnt) VALUES ('%s','%s',%s);" % (
+                time, record[0], record[1])
             cur.execute(qry)
-        
+
         conn.commit()
         cur.close()
-        conn.close()
+        pool.putconn(conn)
 
     rdd.foreachPartition(saveEachPartition)
 
 
-bootstrap_servers = '10.0.0.10:9092'
-topic = 'test'
+# define city dictionary to match
+df_loc = pd.read_csv('/home/ubuntu/uscities.csv')[['city', 'state_id', 'state_name']]
+d = {}
+for index, row in df_loc.iterrows():
+    if row['state_name'] not in d:
+        d[row['state_name']] = row['state_id']
 
-sc = SparkContext()
+
+# set up spark cluster
+bootstrap_servers = '******'
+topic = '******'
+myKeyID = "******"
+mySecretKey = "******"
+
+# initial spark context with master node and app name
+sc = SparkContext("spark://10.0.0.6:7077", "Twitter Trends")
+
+# set console to show error only
 sc.setLogLevel('ERROR')
+
+# config connection to s3
+sc._jsc.hadoopConfiguration().set(
+    "fs.s3.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem")
+sc._jsc.hadoopConfiguration().set("fs.s3.awsAccessKeyId", myKeyID)
+sc._jsc.hadoopConfiguration().set("fs.s3.awsSecretAccessKey", mySecretKey)
+
 ssc = StreamingContext(sc, 1)
-ssc.checkpoint('/home/ubuntu/checkpoint')
+ssc.checkpoint("s3://li-yingxin-checkpoint/")
 
-# create a stream reading data from kafka
-kvs = KafkaUtils.createDirectStream(
-    ssc, [topic], {"metadata.broker.list": bootstrap_servers})
 
-# get tweets with locations in the US
+# read stream from kafka
+kvs = KafkaUtils.createDirectStream(ssc, [topic], {"metadata.broker.list": bootstrap_servers})
+
 tweets = kvs.map(lambda x: json.loads(x[1]))\
     .filter(lambda x: 'created_at' in x and not x['user']['location'] is None)\
     .map(match_loc)\
     .filter(lambda x: x[2] != 'N/A')
 
-# get the number of tweet by state
 count = tweets.map(lambda x: (x[2], 1))\
     .reduceByKeyAndWindow(lambda a, b: a + b, lambda a, b: a - b, 600, 60)\
     .filter(lambda x: x[1] > 0)
 
-# get topic count by state and topic
 topics = tweets.filter(lambda x: len(x[3]) != 0)\
     .flatMap(topicMapper)\
     .reduceByKeyAndWindow(lambda a, b: a + b, lambda a, b: a - b, 600, 60)\
-    .filter(lambda x: x[1] > 0)\
-    .map(lambda x: [x[0][0], x[0][1], x[1]])
+    .filter(lambda x: x[1] > 0)
 
 # save to db
 count.foreachRDD(saveCount)
 topics.foreachRDD(saveTopic)
 
-# print to console
 count.pprint(20)
 topics.pprint(20)
 
