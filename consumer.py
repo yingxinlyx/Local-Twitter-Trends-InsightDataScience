@@ -87,7 +87,6 @@ for index, row in df_loc.iterrows():
         d[row['state_name']] = row['state_id']
 
 
-# set up spark cluster
 bootstrap_servers = '******'
 topic = '******'
 myKeyID = "******"
@@ -100,8 +99,7 @@ sc = SparkContext("spark://10.0.0.6:7077", "Twitter Trends")
 sc.setLogLevel('ERROR')
 
 # config connection to s3
-sc._jsc.hadoopConfiguration().set(
-    "fs.s3.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem")
+sc._jsc.hadoopConfiguration().set("fs.s3.impl", "org.apache.hadoop.fs.s3native.NativeS3FileSystem")
 sc._jsc.hadoopConfiguration().set("fs.s3.awsAccessKeyId", myKeyID)
 sc._jsc.hadoopConfiguration().set("fs.s3.awsSecretAccessKey", mySecretKey)
 
