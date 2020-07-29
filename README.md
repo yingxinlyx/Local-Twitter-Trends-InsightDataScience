@@ -15,4 +15,4 @@ This project is to: <br>
 https://archive.org/search.php?query=archiveteam-twitter-stream
 
 ## 4. Data Platform Snapshot
-![](image.snapshot.png)
+![](image/snapshot.png)
