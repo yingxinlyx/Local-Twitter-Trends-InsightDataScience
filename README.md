@@ -13,3 +13,6 @@ This project is to: <br>
 
 ## 3. Dataset
 https://archive.org/search.php?query=archiveteam-twitter-stream
+
+## 4. Data Platform Snapshot
+![](image.snapshot.png)
